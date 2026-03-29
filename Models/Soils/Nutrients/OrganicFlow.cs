@@ -37,14 +37,6 @@ namespace Models.Soils.Nutrients
         // 添加一个存储每层CUE的私有数组
         private double[] cueLayers;
 
-        /// <summary>
-        /// 添加我们自定义的 UI 参数：
-        /// </summary>
-        [Description("CUE-T (Intercept)")]
-        public double CueIntercept { get; set; } = 0.63;   // 默认值，可以在UI中修改
-        /// 添加一个新的参数来定义CUE对土壤温度的响应斜率
-        [Description("CUE-T (Slope)")]
-        public double CueSlope { get; set; } = -0.016;      // 默认值，可以在UI中修改
 
         // 添加指向土壤温度模块的链接，用于获取各层的温度数据
         [Link]
@@ -53,10 +45,9 @@ namespace Models.Soils.Nutrients
         [Link(Type = LinkType.Child, ByName = true)]
         private readonly IFunction rate = null;
 
-       /// <summary>
-       /// [Link(ByName = true)]
-       /// </summary>
-       /// private readonly IFunction co2Efficiency = null;
+       
+        [Link(ByName = true)]
+        private readonly IFunction co2Efficiency = null;
 
         [Link(ByName = true)]
         private readonly ISolute no3 = null;
@@ -86,8 +77,7 @@ namespace Models.Soils.Nutrients
         /// <summary>Total carbon lost to the atmosphere (kg/ha)</summary>
         public IReadOnlyList<double> Catm => catm;
 
-        /// <summary>Dynamic Carbon Use Efficiency for each soil layer</summary>
-        public IReadOnlyList<double> CurrentCUE => cueLayers;
+      
 
 
         /// <summary>Performs the initial checks and setup</summary>
@@ -146,8 +136,8 @@ namespace Models.Soils.Nutrients
                 double totalPhosphorusFlowToDestinations = 0;
                 // 核心修改点：计算当前层 (i) 的局部 CUE
                 // 公式： CUE = Intercept + Slope * Temp
-                double currentCo2Efficiency = CueIntercept + (CueSlope * soilTempArray[i]);
-                cueLayers[i] = currentCo2Efficiency; // 将当前层的CUE存入数组以便Report模块读取
+                double currentCo2Efficiency = co2Efficiency.Value(i);
+                
 
                 for (int j = 0; j < numDestinations; j++)
                 {
