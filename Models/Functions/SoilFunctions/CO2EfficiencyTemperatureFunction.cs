@@ -36,17 +36,28 @@ namespace Models.Functions.SoilFunctions
         {
             get
             {
-                if (soilTemperature?.Value == null) return null;
-                
-                double[] cueArray = new double[soilTemperature.Value.Length];
-                for (int i = 0; i < cueArray.Length; i++)
+                try
                 {
-                    cueArray[i] = Value(i);
+                    if (soilTemperature == null) return null;
+
+                    // 防护：如果在初始Commence阶段soilTemp可能未建立出数组实例，抓取其引发的未初始化报错
+                    double[] soilTempArray = soilTemperature.Value;
+                    if (soilTempArray == null || soilTempArray.Length == 0) return null;
+
+                    double[] cueArray = new double[soilTempArray.Length];
+                    for (int i = 0; i < cueArray.Length; i++)
+                    {
+                        cueArray[i] = Value(i);
+                    }
+                    return cueArray;
                 }
-                return cueArray;
+                catch
+                {
+                    // 数据尚未就绪，返回null可使 Report 工具自动跳过该第一天或填入 '?' 安全空缺
+                    return null;
+                }
             }
         }
-
 
         /// <summary>
         /// 当 OrganicFlow 调用 .Value(layerIndex) 时，会触发这里
@@ -55,19 +66,26 @@ namespace Models.Functions.SoilFunctions
         /// <returns>计算出的当前层CUE</returns>
         public double Value(int arrayIndex = -1)
         {
-            if (arrayIndex >= 0 && soilTemperature != null)
+            try
             {
-                // soilTemperature.Value 默认返回当天包含每一层的平均温度 Array
-                double[] soilTempArray = soilTemperature.Value;
-                if (arrayIndex < soilTempArray.Length)
+                if (arrayIndex >= 0 && soilTemperature != null)
                 {
-                    double cue = Intercept + (Slope * soilTempArray[arrayIndex]);
+                    double[] soilTempArray = soilTemperature.Value;
+                    if (soilTempArray != null && arrayIndex < soilTempArray.Length)
+                    {
+                        double cue = Intercept + (Slope * soilTempArray[arrayIndex]);
 
-                    // 强制设置一个安全阈值，防止负数或超出1
-                    return Math.Max(0.0, Math.Min(cue, 1.0));
+                        // 强制设置一个安全阈值，防止负数或跨出 [0, 1] 区间
+                        return Math.Max(0.0, Math.Min(cue, 1.0));
+                    }
                 }
             }
-            // 如果未能正常获取土层(通常是因为意外调用)，返回整体平局默认值或截距
+            catch
+            {
+                // 静默消化 SoilTemperature 第0天的初始化报错
+            }
+
+            // 如果未能正常获取土层 (意外调用或处在未初始化状态)，返回截距默认值
             return Intercept;
         }
     }
