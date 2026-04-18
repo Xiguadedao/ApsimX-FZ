@@ -8,8 +8,7 @@ using System.Collections.Generic;
 namespace Models.Functions.SoilFunctions
 {
     /// <summary>
-    /// Calculates CO2 Efficiency (CUE) as a linear function of soil temperature.
-    /// Formula: CUE = Intercept + Slope * SoilTemperature
+    /// Calculates CO2 Efficiency (CUE) as a function of soil temperature using the Arnoldi model.
     /// </summary>
     [Serializable]
     [ViewName("UserInterface.Views.PropertyView")]
@@ -21,13 +20,25 @@ namespace Models.Functions.SoilFunctions
         [Link]
         private ISoilTemperature soilTemperature = null;
 
-        /// <summary>截距</summary>
-        [Description("CUE-T Intercept")]
-        public double Intercept { get; set; } = 0.63;
+        /// <summary>最大生长速率</summary>
+        [Description("mu_max")]
+        public double MuMax { get; set; } = 0.170792;
 
-        /// <summary>温度斜率</summary>
-        [Description("CUE-T Slope")]
-        public double Slope { get; set; } = -0.016;
+        /// <summary>生长的最适温度</summary>
+        [Description("Topt_mu")]
+        public double TOptMu { get; set; } = 27.375838;
+
+        /// <summary>生长的温度带宽常数</summary>
+        [Description("eps_mu")]
+        public double EpsMu { get; set; } = 13.759376;
+
+        /// <summary>呼吸与生长最适温度的差值</summary>
+        [Description("dTopt")]
+        public double DTOpt { get; set; } = 23.853796;
+
+        /// <summary>呼吸与生长温度带宽常数的差值</summary>
+        [Description("deps")]
+        public double Deps { get; set; } = -4.544258;
 
         /// <summary>
         /// 提供给外部 Report 模块读取的每一层 CUE 的属性
@@ -73,10 +84,7 @@ namespace Models.Functions.SoilFunctions
                     double[] soilTempArray = soilTemperature.Value;
                     if (soilTempArray != null && arrayIndex < soilTempArray.Length)
                     {
-                        double cue = Intercept + (Slope * soilTempArray[arrayIndex]);
-
-                        // 强制设置一个安全阈值，防止负数或跨出 [0, 1] 区间
-                        return Math.Max(0.0, Math.Min(cue, 1.0));
+                        return CalculateArnoldiCUE(soilTempArray[arrayIndex]);
                     }
                 }
             }
@@ -85,8 +93,44 @@ namespace Models.Functions.SoilFunctions
                 // 静默消化 SoilTemperature 第0天的初始化报错
             }
 
-            // 如果未能正常获取土层 (意外调用或处在未初始化状态)，返回截距默认值
-            return Intercept;
+            // 如果未能正常获取土层 (意外调用或处在未初始化状态)，假设土温为 20.0 度计算一个安全回退值
+            return CalculateArnoldiCUE(20.0);
+        }
+
+        /// <summary>
+        /// 核心算法：根据 Arnoldi 模型计算给定温度下的 CUE
+        /// </summary>
+        private double CalculateArnoldiCUE(double tVal)
+        {
+            double tOptR = TOptMu + DTOpt;
+            double epsR = EpsMu + Deps;
+            double tLethal = TOptMu + EpsMu;
+
+            // 高温保护：超过 lethal 后直接归零
+            if (tVal >= tLethal)
+            {
+                return 0.0;
+            }
+
+            double xMu = (tVal - TOptMu) / EpsMu;
+            double xR = (tVal - tOptR) / epsR;
+
+            double rateGrowth = MuMax * Math.Exp(xMu) * (1.0 - xMu);
+            double rateResp = Math.Exp(xR) * (1.0 - xR);
+
+            if (rateGrowth <= 0.0)
+            {
+                return 0.0;
+            }
+
+            double denom = rateGrowth + rateResp;
+
+            if (denom <= 1e-12)
+            {
+                return 0.0;
+            }
+
+            return Math.Max(0.0, rateGrowth / denom);
         }
     }
 }
