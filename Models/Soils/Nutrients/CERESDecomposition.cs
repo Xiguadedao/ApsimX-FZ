@@ -1,6 +1,8 @@
 ﻿using System;
 using APSIM.Core;
+using APSIM.Soils;
 using Models.Core;
+using Models.Soils;
 using Models.Soils.Nutrients;
 
 namespace Models.Functions
@@ -22,14 +24,23 @@ namespace Models.Functions
         [Link(IsOptional = true, ByName = true, Type = LinkType.Child)]
         private IFunction CNRF = null;
 
+        // 获取Physical和Organic的实例对象
+        [Link]
+        private Models.Soils.Physical physical = null;
+
+        [Link]
+        private Models.Soils.Organic organic = null;
+
         /// <summary>The potential rate of decomposition</summary>
         [Description("The potential rate of decomposition")]
         public double PotentialRate { get; set; } = 0.0095;
 
         /// <summary>Gets the value.</summary>
-        public double Value(int arrayIndex = -1)
+        public double Value(int arrayIndex)
         {
-            double rate = PotentialRate * TF.Value(arrayIndex) * WF.Value(arrayIndex);
+            double[] DepthMidPoints = physical.DepthMidPoints;
+            double K = organic.K;
+            double rate = PotentialRate * TF.Value(arrayIndex) * WF.Value(arrayIndex) * Math.Exp(-DepthMidPoints[arrayIndex] * K/1000);
             if (CNRF != null)
                 rate *= CNRF.Value(arrayIndex);
             return rate;

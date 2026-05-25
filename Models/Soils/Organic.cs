@@ -108,5 +108,11 @@ namespace Models.Soils
 
         /// <summary>FOM metadata</summary>
         public string[] FOMMetadata { get; set; }
+
+        ///<summary>Depth coefficient K</summary>
+        [Summary]
+        [Description("深度系数K")]
+        [Bounds(Lower = 0.0, Upper = 10)]
+        public double K { get; set; }
     }
 }
