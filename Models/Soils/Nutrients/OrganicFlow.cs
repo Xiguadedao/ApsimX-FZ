@@ -3,6 +3,7 @@ using APSIM.Numerics;
 using APSIM.Shared.Utilities;
 using Models.Core;
 using Models.Functions;
+using Models.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,8 +33,13 @@ namespace Models.Soils.Nutrients
         private double[] mineralisedN;
         private double[] mineralisedP;
         private double[] catm;
-        private double co2EfficiencyValue;
+        //private double co2EfficiencyValue;
+        // 添加一个存储每层CUE的私有数组
+        private double[] cueLayers;
 
+        // 添加指向土壤温度模块的链接，用于获取各层的温度数据
+        [Link]
+        private ISoilTemperature soilTemperature = null;
 
         [Link(Type = LinkType.Child, ByName = true)]
         private readonly IFunction rate = null;
@@ -77,10 +83,11 @@ namespace Models.Soils.Nutrients
             mineralisedN = new double[numberLayers];
             mineralisedP = new double[numberLayers];
             catm = new double[numberLayers];
+            cueLayers = new double[numberLayers]; // 初始化CUE数组
             carbonFlowToDestination = new double[DestinationNames.Length];
             nitrogenFlowToDestination = new double[DestinationNames.Length];
             phosphorusFlowToDestination = new double[DestinationNames.Length];
-            co2EfficiencyValue = co2Efficiency.Value();
+            //co2EfficiencyValue = co2Efficiency.Value();
         }
 
         /// <summary>Perform daily flow calculations.</summary>
@@ -111,6 +118,8 @@ namespace Models.Soils.Nutrients
                 labileP = this.labileP.kgha;
 
             int numDestinations = destinations.Length;
+            // 获取各层的土壤温度数组 (Value属性默认返回的是AverageSoilTemperature)
+            double[] soilTempArray = soilTemperature.Value;
             for (int i = 0; i < numLayers; i++)
             {
 
@@ -120,6 +129,9 @@ namespace Models.Soils.Nutrients
 
                 double totalNitrogenFlowToDestinations = 0;
                 double totalPhosphorusFlowToDestinations = 0;
+                // 核心修改点：计算当前层 (i) 的局部 CUE
+                // 公式： CUE = Intercept + Slope * Temp
+                double co2EfficiencyValue = co2Efficiency.Value(i);
 
                 for (int j = 0; j < numDestinations; j++)
                 {
