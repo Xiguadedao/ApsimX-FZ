@@ -1474,10 +1474,10 @@
           "ReadOnly": false
         },
         {
-          "$type": "Models.Functions.Constant, Models",
-          "FixedValue": 0.4,
-          "Units": null,
-          "Name": "CO2Efficiency",
+          "$type": "Models.Functions.SoilFunctions.CO2EfficiencyTemperatureFunction, Models",
+          "Intercept": 0.63,
+          "Slope": -0.016,
+          "Name": "co2Efficiency",
           "ResourceName": null,
           "Children": [],
           "Enabled": true,
